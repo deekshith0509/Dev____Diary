@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -17,6 +16,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.love.devadasudiary.utils.dataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.regex.Pattern
 
 // ----------------------------
 // DATA MODEL
@@ -43,11 +42,7 @@ data class Poem(
 sealed class PoetryUiState {
     object Loading : PoetryUiState()
     data class Success(val poem: Poem) : PoetryUiState()
-    data class Error(
-        val title: String,
-        val message: String,
-        val canRetry: Boolean = true
-    ) : PoetryUiState()
+    data class Error(val title: String, val message: String) : PoetryUiState()
 }
 
 // ----------------------------
@@ -57,384 +52,220 @@ class PoetryViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = PoetryRepository(app.applicationContext)
 
-    // ----------------------------
-    // YOUR POEM COLLECTION
-    // ----------------------------
-    val poems: List<Poem> = listOf(
-        Poem(
-            id = "1",
-            title = "Devadasu Diary",
-            subtitle = "Words written from silence",
-            gistUrl = "https://gist.githubusercontent.com/deekshith0509/41a9e59c134f6586450a3cfecfc42f14/raw/gistfile1.txt"
-        ),
-        Poem(
-            id = "2",
-            title = "Love Letter",
-            subtitle = "A confession in ink",
-            gistUrl = "https://gist.githubusercontent.com/deekshith0509/80ddbe213135d1dc5c9066273f1df9d4/raw/loveletter.txt"
-        ),
-        Poem(
-            id = "3",
-            title = "Eternal",
-            subtitle = "A forever kind of pain",
-            gistUrl = "https://gist.githubusercontent.com/deekshith0509/1c0bdf62612a1c765ee2299fcf9191eb/raw/Eternal.txt"
-        )
+val poems = listOf(
+
+    Poem(
+        id = "1",
+        title = "దేవదాసు డైరీ",
+        subtitle = "గత క్షణాల నిశ్శబ్ద జ్ఞాపకాలు",
+        gistUrl = "https://gist.githubusercontent.com/deekshith0509/41a9e59c134f6586450a3cfecfc42f14/raw/gistfile1.txt"
+    ),
+
+    Poem(
+        id = "2",
+        title = "ప్రేమలేఖ",
+        subtitle = "మనసులో దాచుకున్న స్వీకారం",
+        gistUrl = "https://gist.githubusercontent.com/deekshith0509/80ddbe213135d1dc5c9066273f1df9d4/raw/loveletter.txt"
+    ),
+
+    Poem(
+        id = "3",
+        title = "ఇక నుంచి...",
+        subtitle = "మనసును కఠినం చేసుకున్న రోజులు",
+        gistUrl = "https://gist.githubusercontent.com/deekshith0509/1c0bdf62612a1c765ee2299fcf9191eb/raw/Eternal.txt"
     )
+)
 
     // ----------------------------
     // DATASTORE KEYS
     // ----------------------------
-    private val FONT_SIZE_KEY = floatPreferencesKey("font_size")
-    private val DARK_THEME_KEY = booleanPreferencesKey("dark_theme")
-    private val STRIP_HTML_KEY = booleanPreferencesKey("strip_html")
-    private val FAVORITE_IDS_KEY = stringSetPreferencesKey("favorite_ids")
-    private val LAST_POEM_ID_KEY = stringPreferencesKey("last_poem_id")
-
-    // NEW SETTINGS KEYS
-    private val LINE_SPACING_KEY = floatPreferencesKey("line_spacing")
-    private val POEM_PADDING_KEY = floatPreferencesKey("poem_padding")
-    private val CENTER_ALIGN_KEY = booleanPreferencesKey("center_align")
+    private val KEY_FONT_SIZE    = floatPreferencesKey("font_size")
+    private val KEY_LINE_SPACING = floatPreferencesKey("line_spacing")
+    private val KEY_PADDING      = floatPreferencesKey("poem_padding")
+    private val KEY_CENTER_ALIGN = booleanPreferencesKey("center_align")
+    private val KEY_DARK_THEME   = booleanPreferencesKey("dark_theme")
+    private val KEY_FAVORITES    = stringSetPreferencesKey("favorite_ids")
+    private val KEY_LAST_POEM    = stringPreferencesKey("last_poem_id")
 
     // ----------------------------
-    // INTERNAL STATE
+    // STATE
     // ----------------------------
-    private val _uiState = MutableStateFlow<PoetryUiState>(PoetryUiState.Loading)
+    private val _uiState       = MutableStateFlow<PoetryUiState>(PoetryUiState.Loading)
     val uiState: StateFlow<PoetryUiState> = _uiState.asStateFlow()
 
-    private val _fontSize = MutableStateFlow(18f)
+    private val _fontSize      = MutableStateFlow(14f)
     val fontSize: StateFlow<Float> = _fontSize.asStateFlow()
 
-    private val _lineSpacing = MutableStateFlow(12f)
+    private val _lineSpacing   = MutableStateFlow(14f)
     val lineSpacing: StateFlow<Float> = _lineSpacing.asStateFlow()
 
-    private val _poemPadding = MutableStateFlow(22f)
+    private val _poemPadding   = MutableStateFlow(21f)
     val poemPadding: StateFlow<Float> = _poemPadding.asStateFlow()
 
-    private val _centerAlign = MutableStateFlow(true)
+    private val _centerAlign   = MutableStateFlow(false)
     val centerAlign: StateFlow<Boolean> = _centerAlign.asStateFlow()
 
-    private val _isDarkTheme = MutableStateFlow(true)
+    private val _isDarkTheme   = MutableStateFlow(true)
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
-    /**
-     * WARNING:
-     * Stripping HTML can break poem formatting.
-     * Default = false for poetry apps.
-     */
-    private val _stripHtml = MutableStateFlow(false)
-    val stripHtml: StateFlow<Boolean> = _stripHtml.asStateFlow()
-
-    private val _favoriteIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _favoriteIds   = MutableStateFlow<Set<String>>(emptySet())
     val favoriteIds: StateFlow<Set<String>> = _favoriteIds.asStateFlow()
 
     private val _currentPoemId = MutableStateFlow(poems.first().id)
     val currentPoemId: StateFlow<String> = _currentPoemId.asStateFlow()
 
-    private var currentRawContent: String = ""
+    private var currentRawContent = ""
 
-    // ----------------------------
-    // INIT
-    // ----------------------------
     init {
-        restorePreferencesAndLoad()
-    }
-
-    private fun restorePreferencesAndLoad() {
         viewModelScope.launch {
+            val prefs = getApplication<Application>().applicationContext.dataStore.data.first()
 
-            val prefs = getApplication<Application>()
-                .applicationContext
-                .dataStore
-                .data
-                .first()
+            _fontSize.value    = prefs[KEY_FONT_SIZE]    ?: 14f
+            _lineSpacing.value = prefs[KEY_LINE_SPACING] ?: 14f
+            _poemPadding.value = prefs[KEY_PADDING]      ?: 21f
+            _centerAlign.value = prefs[KEY_CENTER_ALIGN] ?: false
+            _isDarkTheme.value = prefs[KEY_DARK_THEME]   ?: true
+            _favoriteIds.value = prefs[KEY_FAVORITES]    ?: emptySet()
 
-            _fontSize.value = prefs[FONT_SIZE_KEY] ?: 18f
-            _isDarkTheme.value = prefs[DARK_THEME_KEY] ?: true
-            _stripHtml.value = prefs[STRIP_HTML_KEY] ?: false
-            _favoriteIds.value = prefs[FAVORITE_IDS_KEY] ?: emptySet()
-
-            // NEW SETTINGS RESTORE
-            _lineSpacing.value = prefs[LINE_SPACING_KEY] ?: 12f
-            _poemPadding.value = prefs[POEM_PADDING_KEY] ?: 22f
-            _centerAlign.value = prefs[CENTER_ALIGN_KEY] ?: true
-
-            val lastPoemId = prefs[LAST_POEM_ID_KEY]
-            if (!lastPoemId.isNullOrBlank() && poems.any { it.id == lastPoemId }) {
-                _currentPoemId.value = lastPoemId
+            val lastId = prefs[KEY_LAST_POEM]
+            if (!lastId.isNullOrBlank() && poems.any { it.id == lastId }) {
+                _currentPoemId.value = lastId
             }
 
-            loadPoemById(_currentPoemId.value, forceNetwork = false)
+            loadPoem(_currentPoemId.value, forceNetwork = false)
         }
     }
 
     // ----------------------------
-    // UI CONTROLS
+    // SETTINGS
     // ----------------------------
     fun toggleTheme() {
         _isDarkTheme.value = !_isDarkTheme.value
-        savePreference(DARK_THEME_KEY, _isDarkTheme.value)
+        save(KEY_DARK_THEME, _isDarkTheme.value)
     }
 
     fun setFontSize(size: Float) {
-        val safeSize = size.coerceIn(14f, 34f)
-        _fontSize.value = safeSize
-        savePreference(FONT_SIZE_KEY, safeSize)
+        _fontSize.value = size.coerceIn(10f, 34f)
+        save(KEY_FONT_SIZE, _fontSize.value)
     }
 
     fun setLineSpacing(value: Float) {
-        val safe = value.coerceIn(8f, 22f)
-        _lineSpacing.value = safe
-        savePreference(LINE_SPACING_KEY, safe)
+        _lineSpacing.value = value.coerceIn(8f, 30f)
+        save(KEY_LINE_SPACING, _lineSpacing.value)
     }
 
     fun setPoemPadding(value: Float) {
-        val safe = value.coerceIn(10f, 40f)
-        _poemPadding.value = safe
-        savePreference(POEM_PADDING_KEY, safe)
+        _poemPadding.value = value.coerceIn(8f, 48f)
+        save(KEY_PADDING, _poemPadding.value)
     }
 
     fun setCenterAlign(enabled: Boolean) {
         _centerAlign.value = enabled
-        savePreference(CENTER_ALIGN_KEY, enabled)
+        save(KEY_CENTER_ALIGN, enabled)
     }
 
-    fun setStripHtml(enabled: Boolean) {
-        _stripHtml.value = enabled
-        savePreference(STRIP_HTML_KEY, enabled)
-        updateDisplayedPoem()
-    }
-
+    // ----------------------------
+    // POEM SELECTION
+    // ----------------------------
     fun selectPoemById(poemId: String) {
         if (poems.none { it.id == poemId }) return
-
         _currentPoemId.value = poemId
-        savePreference(LAST_POEM_ID_KEY, poemId)
-
-        loadPoemById(poemId, forceNetwork = false)
-        vibrateSoft()
+        save(KEY_LAST_POEM, poemId)
+        loadPoem(poemId, forceNetwork = false)
+        vibrate()
     }
 
     fun refreshPoem() {
-        loadPoemById(_currentPoemId.value, forceNetwork = true)
-        vibrateSoft()
+        loadPoem(_currentPoemId.value, forceNetwork = true)
+        vibrate()
     }
 
     fun toggleFavorite(poemId: String) {
-        val newSet = _favoriteIds.value.toMutableSet()
-
-        if (newSet.contains(poemId)) newSet.remove(poemId)
-        else newSet.add(poemId)
-
-        _favoriteIds.value = newSet
-
-        viewModelScope.launch {
-            getApplication<Application>()
-                .applicationContext
-                .dataStore
-                .edit { prefs ->
-                    prefs[FAVORITE_IDS_KEY] = newSet
-                }
+        val updated = _favoriteIds.value.toMutableSet().also {
+            if (poemId in it) it.remove(poemId) else it.add(poemId)
         }
-
-        vibrateSoft()
+        _favoriteIds.value = updated
+        viewModelScope.launch {
+            getApplication<Application>().applicationContext.dataStore.edit {
+                it[KEY_FAVORITES] = updated
+            }
+        }
+        vibrate()
     }
 
-    // ----------------------------
-    // POEM LOADING LOGIC
-    // ----------------------------
-    private fun loadPoemById(poemId: String, forceNetwork: Boolean) {
-        viewModelScope.launch {
 
+
+    // ----------------------------
+    // LOADING
+    // ----------------------------
+    private fun loadPoem(poemId: String, forceNetwork: Boolean) {
+        viewModelScope.launch {
             _uiState.value = PoetryUiState.Loading
 
-            val poemMeta = poems.firstOrNull { it.id == poemId }
-            if (poemMeta == null) {
-                _uiState.value = PoetryUiState.Error(
-                    title = "Missing page",
-                    message = "This poem does not exist in your diary list."
-                )
+            val meta = poems.firstOrNull { it.id == poemId } ?: run {
+                _uiState.value = PoetryUiState.Error("Missing page", "This poem doesn't exist.")
                 return@launch
             }
 
             try {
-
-                // Cache first (if allowed)
                 if (!forceNetwork) {
-                    val cached = repo.loadCachedPoem(poemMeta.id)
+                    val cached = repo.loadCachedPoem(meta.id)
                     if (!cached.isNullOrBlank()) {
                         currentRawContent = cached
-                        updateDisplayedPoem(poemMeta.copy(content = cached))
+                        _uiState.value = PoetryUiState.Success(meta.copy(content = cached))
                         return@launch
                     }
                 }
 
-                // Fetch from network
-                val networkText = withContext(Dispatchers.IO) {
-                    repo.fetchPoemFromNetwork(poemMeta.gistUrl)
-                }
+                val text = withContext(Dispatchers.IO) {
+                    repo.fetchPoemFromNetwork(meta.gistUrl)
+                }.replace("\uFEFF", "")
 
-                val cleaned = cleanPoem(networkText)
+                if (text.isBlank()) throw Exception("Poem file is empty.")
 
-                // Detect wrong URL (HTML response)
-                if (looksLikeHtml(cleaned)) {
-                    throw Exception("Wrong Gist URL (you are fetching HTML instead of RAW text).")
-                }
-
-                if (cleaned.isBlank()) {
-                    throw Exception("Your poem file is empty.")
-                }
-
-                currentRawContent = cleaned
-                repo.savePoem(poemMeta.id, cleaned)
-
-                updateDisplayedPoem(poemMeta.copy(content = cleaned))
+                currentRawContent = text
+                repo.savePoem(meta.id, text)
+                _uiState.value = PoetryUiState.Success(meta.copy(content = text))
 
             } catch (e: Exception) {
-
-                // Offline fallback: try cache
-                val cached = repo.loadCachedPoem(poemMeta.id)
-
+                val cached = repo.loadCachedPoem(meta.id)
                 if (!cached.isNullOrBlank()) {
                     currentRawContent = cached
-                    updateDisplayedPoem(poemMeta.copy(content = cached))
+                    _uiState.value = PoetryUiState.Success(meta.copy(content = cached))
                 } else {
                     _uiState.value = PoetryUiState.Error(
-                        title = "Love couldn’t reach the page",
-                        message = buildRomanticErrorMessage(e),
-                        canRetry = true
+                        title = "Couldn't reach the diary",
+                        message = "Check your connection and tap Refresh.\n\n${e.message}"
                     )
                 }
             }
         }
     }
 
-    private fun updateDisplayedPoem(poemOverride: Poem? = null) {
-
-        val poemMeta = poemOverride ?: poems.first { it.id == _currentPoemId.value }
-        val baseText = poemOverride?.content ?: currentRawContent
-
-        val finalText = if (_stripHtml.value) {
-            stripHtmlSafely(baseText)
-        } else {
-            baseText
-        }
-
-        _uiState.value = PoetryUiState.Success(
-            poemMeta.copy(content = finalText)
-        )
-    }
-
-    // ----------------------------
-    // COPY / SHARE
-    // ----------------------------
-    fun copyPoemToClipboard() {
-        val text = currentRawContent
-        if (text.isBlank()) return
-
-        val clipboard = getApplication<Application>()
-            .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText("Devadasu Diary Poem", text)
-        )
-
-        vibrateSoft()
-    }
-
-    fun sharePoem(context: Context) {
-        val text = currentRawContent
-        if (text.isBlank()) return
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-
-        context.startActivity(Intent.createChooser(intent, "Share this love..."))
-        vibrateSoft()
-    }
-
     // ----------------------------
     // HELPERS
     // ----------------------------
-    private fun cleanPoem(text: String): String {
-        return text.replace("\uFEFF", "")
-    }
-
-    private fun looksLikeHtml(text: String): Boolean {
-        val t = text.trim().lowercase()
-        return t.startsWith("<!doctype html") ||
-                t.startsWith("<html") ||
-                t.contains("<head") ||
-                t.contains("<body") ||
-                t.contains("</html>")
-    }
-
-    private fun stripHtmlSafely(text: String): String {
-        if (!text.contains('<')) return text
-
-        val withoutTags = Pattern.compile("<[^>]*>").matcher(text).replaceAll("")
-
-        return withoutTags
-            .replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'")
-            .replace("\r\n", "\n")
-    }
-
-    private fun buildRomanticErrorMessage(e: Exception): String {
-        val raw = e.message ?: "Unknown error"
-
-        return """
-            The diary couldn’t open...
-            
-            ✦ Reason:
-            $raw
-            
-            ✦ Fix:
-            • Check internet connection
-            • Ensure your Gist URL is RAW
-            • Tap Refresh
-            
-            — Devadasu Diary
-        """.trimIndent()
-    }
-
-    private fun vibrateSoft() {
-        val context = getApplication<Application>().applicationContext
-
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-
+    private fun vibrate() {
+        val ctx = getApplication<Application>().applicationContext
         try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(
-                    VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE)
-                )
+                vibrator.vibrate(VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(18)
             }
-        } catch (_: Exception) {
-            // ignore vibration errors
-        }
+        } catch (_: Exception) {}
     }
 
-    private fun <T> savePreference(key: Preferences.Key<T>, value: T) {
+    private fun <T> save(key: androidx.datastore.preferences.core.Preferences.Key<T>, value: T) {
         viewModelScope.launch {
-            getApplication<Application>()
-                .applicationContext
-                .dataStore
-                .edit { prefs ->
-                    prefs[key] = value
-                }
+            getApplication<Application>().applicationContext.dataStore.edit { it[key] = value }
         }
     }
 }
