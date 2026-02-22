@@ -90,6 +90,13 @@ implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     // ---------------- COROUTINES ----------------
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
+    // ---------------- MARKDOWN ----------------
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:ext-strikethrough:4.6.2")
+    implementation("io.noties.markwon:ext-tables:4.6.2")
+    implementation("io.noties.markwon:ext-tasklist:4.6.2")
+    implementation("io.noties.markwon:html:4.6.2")
+
     // ---------------- MATERIAL XML THEMES SUPPORT ----------------
     implementation("com.google.android.material:material:1.12.0")
 }

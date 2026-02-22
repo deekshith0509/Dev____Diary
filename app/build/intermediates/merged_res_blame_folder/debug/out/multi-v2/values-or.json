@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-62:/values-or/values-or.xml",
+            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-64:/values-or/values-or.xml",
             "map": [
                 {
                     "source": "/home/deekshith/.gradle/caches/transforms-3/29bf6b4a1161514d37c0c45cce4a3627/transformed/foundation-release/res/values-or/values-or.xml",

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-62:/values-pa/values-pa.xml",
+            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-64:/values-pa/values-pa.xml",
             "map": [
                 {
                     "source": "/home/deekshith/.gradle/caches/transforms-3/0e54ee746d1815d7642673bcbd9eae29/transformed/core-1.13.0/res/values-pa/values-pa.xml",

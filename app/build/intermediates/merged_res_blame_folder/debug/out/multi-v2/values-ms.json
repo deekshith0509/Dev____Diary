@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-62:/values-ms/values-ms.xml",
+            "outputFile": "com.love.devadasudiary.app-mergeDebugResources-64:/values-ms/values-ms.xml",
             "map": [
                 {
                     "source": "/home/deekshith/.gradle/caches/transforms-3/0e54ee746d1815d7642673bcbd9eae29/transformed/core-1.13.0/res/values-ms/values-ms.xml",

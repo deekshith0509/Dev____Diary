@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.love.devadasudiary.ui.theme.DevadasuDiaryTheme
+import com.love.devadasudiary.ui.screens.LoveDiaryScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -14,7 +16,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
-            val vm: PoetryViewModel = viewModel()
+            val vm: PoetryViewModel = viewModel<PoetryViewModel>()
             val isDark by vm.isDarkTheme.collectAsState()
 
             DevadasuDiaryTheme(isDark = isDark) {
