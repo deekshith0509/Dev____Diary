@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HeartBroken
@@ -34,21 +36,20 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import kotlinx.coroutines.delay
+import com.love.devadasudiary.core.DiaryDimens
 
 @Composable
 fun RomanticErrorCard(title: String, message: String, onRetry: () -> Unit) {
 
-    val shakeAnim = remember { Animatable(0f) }
+    val shake = remember { Animatable(0f) }
 
-    LaunchedEffect(Unit) {
+    // Re-trigger the shake when the error content changes — previously the
+    // animation only fired once for the entire app session.
+    LaunchedEffect(title, message) {
         repeat(4) { i ->
-            shakeAnim.animateTo(if (i % 2 == 0) 14f else -14f, tween(70))
+            shake.animateTo(if (i % 2 == 0) 14f else -14f, tween(70))
         }
-        shakeAnim.animateTo(0f, tween(100))
+        shake.animateTo(0f, tween(100))
     }
 
     val infinite = rememberInfiniteTransition(label = "error")
@@ -62,18 +63,24 @@ fun RomanticErrorCard(title: String, message: String, onRetry: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { translationX = shakeAnim.value },
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.93f)),
+            .graphicsLayer { translationX = shake.value },
+        shape = RoundedCornerShape(DiaryDimens.CardCornerLarge),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.93f)
+        ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.38f))
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp)
+            ) {
                 Icon(
                     Icons.Default.HeartBroken,
                     contentDescription = null,
-                    modifier = Modifier.size(68.dp).scale(iconPulse),
+                    modifier = Modifier
+                        .size(68.dp)
+                        .scale(iconPulse),
                     tint = MaterialTheme.colorScheme.error
                 )
 
@@ -97,11 +104,8 @@ fun RomanticErrorCard(title: String, message: String, onRetry: () -> Unit) {
 
                 Spacer(Modifier.height(28.dp))
 
-                Button(
-                    onClick = onRetry,
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Icon(Icons.Default.Refresh, null, Modifier.size(18.dp))
+                Button(onClick = onRetry, shape = RoundedCornerShape(50)) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Try Again", fontWeight = FontWeight.SemiBold)
                 }

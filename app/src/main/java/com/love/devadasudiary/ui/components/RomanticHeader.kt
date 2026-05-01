@@ -23,12 +23,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -38,7 +39,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.love.devadasudiary.core.DiaryDimens
 
+/**
+ * Decorative app banner: a pulsing pill with a shimmering gradient and a
+ * marquee that only kicks in if the title overflows. Width measurement
+ * was previously broken — Spacer was layered on top of the Text and
+ * "consumed" the size, so the marquee never settled. We now measure the
+ * outer Box directly via [onSizeChanged].
+ */
 @Composable
 fun RomanticHeader(title: String) {
 
@@ -47,40 +56,28 @@ fun RomanticHeader(title: String) {
     val shimmerX by infinite.animateFloat(
         initialValue = 0f,
         targetValue = 1200f,
-        animationSpec = infiniteRepeatable(
-            tween(4200, easing = LinearEasing),
-            RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
         label = "shimmer"
     )
 
     val glow by infinite.animateFloat(
         initialValue = 0.25f,
         targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(
-            tween(1800, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "glow"
     )
 
     val pulse by infinite.animateFloat(
         initialValue = 0.992f,
         targetValue = 1.012f,
-        animationSpec = infiniteRepeatable(
-            tween(2200, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "pulse"
     )
 
     val marqueeP by infinite.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(9000, easing = LinearEasing),
-            RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Restart),
         label = "marquee"
     )
 
@@ -91,13 +88,17 @@ fun RomanticHeader(title: String) {
     val surface = MaterialTheme.colorScheme.surface
 
     val shimmerBrush = Brush.linearGradient(
-        colors = listOf(primary.copy(0.08f), secondary.copy(0.45f), primary.copy(0.08f)),
-        start = androidx.compose.ui.geometry.Offset(shimmerX - 1200f, 0f),
-        end = androidx.compose.ui.geometry.Offset(shimmerX, 0f)
+        colors = listOf(
+            primary.copy(alpha = 0.08f),
+            secondary.copy(alpha = 0.45f),
+            primary.copy(alpha = 0.08f)
+        ),
+        start = Offset(shimmerX - 1200f, 0f),
+        end = Offset(shimmerX, 0f)
     )
 
-    var textW by remember { mutableFloatStateOf(0f) }
-    var boxW by remember { mutableFloatStateOf(0f) }
+    var textWidth by remember { mutableIntStateOf(0) }
+    var boxWidth by remember { mutableIntStateOf(0) }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -105,8 +106,8 @@ fun RomanticHeader(title: String) {
             .padding(horizontal = 6.dp)
     ) {
         val isSmall = maxWidth < 360.dp
-        val hFont = if (isSmall) 15.sp else 17.sp
-        val sFont = if (isSmall) 11.sp else 12.sp
+        val headerFont = if (isSmall) 15.sp else 17.sp
+        val subFont = if (isSmall) 11.sp else 12.sp
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -116,7 +117,7 @@ fun RomanticHeader(title: String) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(DiaryDimens.HeaderHeight)
                     .scale(pulse),
                 shape = RoundedCornerShape(50.dp),
                 color = surface.copy(alpha = 0.88f),
@@ -125,7 +126,11 @@ fun RomanticHeader(title: String) {
                 border = BorderStroke(
                     1.dp,
                     Brush.horizontalGradient(
-                        listOf(primary.copy(0.70f), secondary.copy(0.55f), Color.Transparent)
+                        listOf(
+                            primary.copy(alpha = 0.70f),
+                            secondary.copy(alpha = 0.55f),
+                            Color.Transparent
+                        )
                     )
                 )
             ) {
@@ -133,7 +138,8 @@ fun RomanticHeader(title: String) {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(shimmerBrush)
-                        .padding(horizontal = 18.dp),
+                        .padding(horizontal = 18.dp)
+                        .onSizeChanged { boxWidth = it.width },
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -141,26 +147,20 @@ fun RomanticHeader(title: String) {
                         maxLines = 1,
                         softWrap = false,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = hFont,
+                            fontSize = headerFont,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 1.4.sp
                         ),
                         color = onSurface,
                         modifier = Modifier
-                            .onSizeChanged { textW = it.width.toFloat() }
+                            .onSizeChanged { textWidth = it.width }
                             .graphicsLayer {
                                 translationX = when {
-                                    boxW == 0f -> 0f
-                                    textW <= boxW -> (boxW - textW) / 2f
-                                    else -> boxW + (-textW - boxW) * marqueeP
+                                    boxWidth == 0 -> 0f
+                                    textWidth <= boxWidth -> (boxWidth - textWidth) / 2f
+                                    else -> boxWidth + (-textWidth - boxWidth.toFloat()) * marqueeP
                                 }
                             }
-                    )
-
-                    Spacer(
-                        Modifier
-                            .fillMaxSize()
-                            .onSizeChanged { boxW = it.width.toFloat() }
                     )
                 }
             }
@@ -170,7 +170,7 @@ fun RomanticHeader(title: String) {
             Text(
                 text = "Devadasu Diary • Love written in silence",
                 style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = sFont,
+                    fontSize = subFont,
                     fontStyle = FontStyle.Italic,
                     fontWeight = FontWeight.Light,
                     letterSpacing = 1.1.sp

@@ -25,10 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.love.devadasudiary.core.DiaryDimens
 
 @Composable
 fun RomanticLoadingCard() {
@@ -38,20 +40,14 @@ fun RomanticLoadingCard() {
     val pulse by infinite.animateFloat(
         initialValue = 0.92f,
         targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            tween(900, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "pulse"
     )
 
     val glow by infinite.animateFloat(
         initialValue = 0.25f,
         targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(
-            tween(1400, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "glow"
     )
 
@@ -63,14 +59,18 @@ fun RomanticLoadingCard() {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(DiaryDimens.CardCornerLarge),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
             ),
             border = BorderStroke(
                 1.dp,
                 Brush.linearGradient(
-                    listOf(primary.copy(0.65f), secondary.copy(0.40f), androidx.compose.ui.graphics.Color.Transparent)
+                    listOf(
+                        primary.copy(alpha = 0.65f),
+                        secondary.copy(alpha = 0.40f),
+                        Color.Transparent
+                    )
                 )
             ),
             modifier = Modifier
@@ -81,14 +81,11 @@ fun RomanticLoadingCard() {
                 modifier = Modifier.padding(horizontal = 30.dp, vertical = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
                 Box(contentAlignment = Alignment.Center) {
-
                     CircularProgressIndicator(
                         strokeWidth = 4.dp,
                         color = primary
                     )
-
                     Text(
                         text = "♥",
                         style = MaterialTheme.typography.titleLarge.copy(

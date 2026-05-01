@@ -2,12 +2,12 @@ package com.love.devadasudiary.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -40,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
@@ -61,17 +60,13 @@ fun RomanticTopBar(
     onRefresh: () -> Unit,
     onSettings: () -> Unit
 ) {
-
     val shimmer = shimmerBrush()
 
     val infinite = rememberInfiniteTransition(label = "topbar")
     val glow by infinite.animateFloat(
         initialValue = 0.25f,
         targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(
-            tween(1600, easing = FastOutSlowInEasing),
-            RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "glow"
     )
 
@@ -83,22 +78,16 @@ fun RomanticTopBar(
 
     CenterAlignedTopAppBar(
         title = {
-
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-
-                // Row title aligned near theme toggle
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-
                     Spacer(Modifier.width(4.dp))
-
-                    // Love badge dot
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -107,9 +96,7 @@ fun RomanticTopBar(
                                 CircleShape
                             )
                     )
-
                     Spacer(Modifier.width(8.dp))
-
                     Text(
                         text = title,
                         maxLines = 1,
@@ -119,10 +106,7 @@ fun RomanticTopBar(
                             letterSpacing = 1.2.sp
                         ),
                         modifier = Modifier
-                            .background(
-                                brush = shimmer,
-                                shape = RoundedCornerShape(10.dp)
-                            )
+                            .background(brush = shimmer, shape = RoundedCornerShape(10.dp))
                             .padding(horizontal = 10.dp, vertical = 2.dp)
                     )
                 }
@@ -141,38 +125,32 @@ fun RomanticTopBar(
                 )
             }
         },
-
         navigationIcon = {
             IconButton(onClick = onToggleTheme) {
                 Icon(
                     imageVector = if (isDark) Icons.Default.NightsStay else Icons.Default.WbSunny,
-                    contentDescription = "Toggle Theme",
+                    contentDescription = "Toggle theme",
                     modifier = Modifier.graphicsLayer { rotationY = iconFlip }
                 )
             }
         },
-
         actions = {
-
-            // Favorite button
             IconButton(onClick = onToggleFavorite) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (isFavorite) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                    tint = if (isFavorite)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            // Refresh Poem button
             IconButton(onClick = onRefresh) {
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "Refresh Poem"
+                    contentDescription = "Refresh poem"
                 )
             }
-
-            // Settings button
             IconButton(onClick = onSettings) {
                 Icon(
                     imageVector = Icons.Default.Settings,
@@ -180,7 +158,6 @@ fun RomanticTopBar(
                 )
             }
         },
-
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = Color.Transparent,
             scrolledContainerColor = Color.Transparent

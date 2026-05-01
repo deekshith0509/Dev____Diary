@@ -1,7 +1,24 @@
 # 💖 Devadasu Diary
+
 > *"Some apps are built for productivity. This one is built for emotion."*
 
 A cinematic romantic poetry reader for Android — built with Kotlin and Jetpack Compose. Poems live on GitHub Gist. The UI lives in a midnight diary.
+
+---
+
+## 📦 Download — v2.0
+
+The signed release APK is published with each tag on the [**Releases page**](https://github.com/deekshith0509/Dev____Diary/releases).
+
+```
+DevadasuDiary-v2.0.apk        ~13 MB    minSdk 24 (Android 7.0+)
+```
+
+Install directly on the phone (enable *Install from unknown sources* once), or via ADB:
+
+```bash
+adb install -r DevadasuDiary-v2.0.apk
+```
 
 ---
 
@@ -13,38 +30,76 @@ Devadasu Diary treats every poem like a love letter. The background breathes —
 
 It is built for:
 - poems written in silence
-- memories that cannot be forgotten  
+- memories that cannot be forgotten
 - confessions that were never sent
+
+---
+
+## What's new in v2.0
+
+This release is a **full rewrite** under the hood — same look and feel, drastically better internals.
+
+**Architecture**
+- New layered package structure: `core` → `data` → `ui`
+- `PreferencesRepository` collapses 7+ raw DataStore touches into one typed `UserPreferences` flow
+- `PoemCatalog` hoisted out of the ViewModel
+- `PoetryRepository` uses a singleton `OkHttpClient` (connection pooling preserved across config changes), `.use { }` on every response (no more leaked connections), and a single `cleanContent` step so the BOM stripping isn't bypassed on the cache path
+- `PoetryViewModel` exposes one `uiState`, one `readingSettings`, one `appState` — all `@Immutable`, all `stateIn(WhileSubscribed(5_000))`
+- Single tracked `loadJob` cancels the previous load on a new tap — no more racing state writes
+- `CancellationException` is no longer swallowed by the catch-all
+- ViewModel created via `viewModelFactory { initializer { … } }` (idiomatic, no more `AndroidViewModel`-only path)
+
+**UI**
+- Edge-to-edge enabled; status & nav bar icons flip contrast per theme
+- The "twinkling" background actually animates now — driven by `withFrameMillis` instead of one-shot `Random` (the old field was static)
+- Markwon only re-parses when the poem **changes**, not on every slider tick — smooth dragging
+- Bottom-nav long-press toggles favorite (was a stubbed callback)
+- Icon mapping is data-driven, not hard-coded by `poem.id`
+- Header marquee width measurement fixed (Spacer used to swallow the size signal)
+- Error card re-shakes on each new error
+- `AnimatedContent` keyed on the poem id so loading→success on the same poem doesn't redundantly re-animate
+
+**Settings**
+- Slider ranges sourced from `DiaryRanges` — UI and VM cannot drift apart any more
+- New persisted toggles: **Haptic Feedback** + **Dynamic Theme Colors** (the old code forced dynamic color on, killing the romantic palette on Android 12+)
+
+**Build & packaging**
+- Lifecycle deps aligned to 2.8.4 (was 2.8.4 + 2.7.0 mix)
+- Release APK shrunk from 19 MB → **13 MB** via packaging excludes
+- `android:configChanges` covers rotation/uiMode/fontScale → state survives
+- Explicit `backup_rules.xml` + `data_extraction_rules.xml`
+- ProGuard rules for Markwon, commonmark, OkHttp, Compose
+
+A line-by-line bug+enhancement audit (32 bugs / 44 enhancements) is in the v2.0 commit message.
 
 ---
 
 ## Features
 
 **Content**
-- Fetches poems from GitHub Gist RAW URLs — no backend needed
+- Fetches poems from GitHub Gist raw URLs — no backend needed
 - Offline cache — works without internet after first load
 - Multiple poems with bottom navigation
-- Full Markdown rendering via Markwon (bold, italic, tables, code blocks with rounded corners)
+- Full Markdown rendering via Markwon (bold, italic, tables, code, task lists, HTML)
 - Supports Telugu and other Unicode scripts natively
 
-**Reading Experience**
+**Reading experience**
 - Compose-native smooth scroll with full fling physics
-- Font size, line spacing, padding, alignment — all adjustable and persisted
-- Text selection enabled — copy individual lines
-- Favorites persisted across sessions
+- Font size, line spacing, padding, alignment — adjustable, persisted, with a live preview
+- Text selection — long-press inside the poem and a custom **Share** action mode item appears
+- Favorites persisted across sessions; long-press a bottom-nav item to toggle
 
-**UI & Atmosphere**
-- Animated background — twinkling stars, shooting meteors, floating hearts
+**UI & atmosphere**
+- Animated background — twinkling stars, shooting meteors, drifting hearts
 - Glassmorphism card with gradient border
 - Romantic Dark theme (midnight purple) and Soft Light theme (pastel pink)
-- Shimmer loading card, romantic error screen with retry
-- Live settings preview — see font/spacing changes before closing the sheet
+- Optional Material You dynamic colors (Android 12+) behind a settings toggle
+- Shimmer loading card, romantic error screen with retry & shake
 
 **Utilities**
-- Copy poem to clipboard
-- Share via any app
-- Force refresh from network
-- Haptic feedback on every interaction
+- Share selected lines via any app
+- Force refresh from network with stale-while-revalidate fallback
+- Haptic feedback (toggleable)
 
 ---
 
@@ -52,48 +107,57 @@ It is built for:
 
 | Layer | Technology |
 |---|---|
-| UI | Jetpack Compose |
-| State | ViewModel + StateFlow |
-| Persistence | DataStore Preferences + local file cache |
-| Networking | HttpURLConnection |
-| Markdown | Markwon with custom `LineBackgroundSpan` |
-| Pattern | MVVM |
+| UI | Jetpack Compose, Material 3 |
+| State | `ViewModel` + `StateFlow` (one immutable record per stream) |
+| Persistence | DataStore Preferences |
+| Networking | OkHttp 4 (singleton client, connection pooling) |
+| Markdown | Markwon (core + strikethrough + tables + tasklist + html) |
+| Pattern | MVVM with a thin Repository layer |
 
-The scroll system deserves a note: `AndroidView` (Markwon's `TextView`) is rendered at full `wrapContentHeight` inside a Compose `verticalScroll` column — this gives native fling momentum rather than the janky event-bridging that `nestedScrollInterop` alone produces.
-
-The code block span uses `LineBackgroundSpan` with first/last line awareness to draw one unified rounded rectangle across multiple lines — not individual per-line boxes.
+The scroll system deserves a note: Markwon's `TextView` is rendered at full `wrapContentHeight` inside a Compose `verticalScroll` column — this gives native fling momentum and lets complex scripts (Telugu, Devanagari) shape correctly, which the Compose text engine doesn't yet handle as cleanly.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 DevadasuDiary/
 └── app/src/main/java/com/love/devadasudiary/
+    ├── DiaryApplication.kt
     ├── MainActivity.kt
-    ├── PoetryViewModel.kt              # State, settings, poem loading, cache
-    ├── PoetryRepository.kt             # Network fetch + local file cache
+    ├── core/
+    │   ├── Constants.kt          # DiaryDefaults / DiaryRanges / DiaryDimens / DiaryTimings
+    │   ├── DataStoreExt.kt       # single dataStore delegate
+    │   └── Haptics.kt            # lazy vibrator + permission-safe tick()
+    ├── data/
+    │   ├── PoemCatalog.kt        # static poem list
+    │   ├── PoetryRepository.kt   # network + cache (singleton OkHttp)
+    │   ├── model/Poem.kt         # @Immutable
+    │   └── prefs/
+    │       ├── PreferencesKeys.kt
+    │       └── PreferencesRepository.kt   # typed UserPreferences flow
     └── ui/
-        ├── screens/
-        │   └── LoveDiaryScreen.kt      # Main screen composition
+        ├── PoetryViewModel.kt    # one uiState / readingSettings / appState
+        ├── screens/LoveDiaryScreen.kt
         ├── components/
-        │   ├── RomanticPoemCard.kt     # Markwon renderer + smooth scroll
-        │   ├── RomanticBackground.kt   # Animated stars / hearts / meteors
+        │   ├── RomanticPoemCard.kt        # Markwon, no re-parse on slider drag
+        │   ├── RomanticBackground.kt      # frame-clock driven particles
         │   ├── RomanticTopBar.kt
         │   ├── RomanticBottomNavigation.kt
+        │   ├── RomanticHeader.kt
         │   ├── RomanticLoadingCard.kt
-        │   └── RomanticErrorCard.kt
-        ├── dialogs/
-        │   └── RomanticSettingsSheet.kt  # Live preview while adjusting
-        └── theme/
-            └── Theme.kt
+        │   ├── RomanticErrorCard.kt
+        │   └── PremiumEffects.kt
+        ├── dialogs/RomanticSettingsSheet.kt
+        ├── state/PoetryUiState.kt         # sealed interface + ReadingSettings
+        └── theme/Theme.kt                 # dynamic colors opt-in (was forced)
 ```
 
 ---
 
-## Adding Poems
+## Adding poems
 
-Open `PoetryViewModel.kt` and add to the `poems` list:
+Open [PoemCatalog.kt](app/src/main/java/com/love/devadasudiary/data/PoemCatalog.kt) and append:
 
 ```kotlin
 Poem(
@@ -104,19 +168,25 @@ Poem(
 )
 ```
 
-The URL **must** be the RAW Gist URL, not the Gist page URL. Poems can be written in any language — Telugu, Hindi, English, or mixed.
+The URL **must** be the *raw* Gist URL, not the Gist page URL. Poems can be written in any language — Telugu, Hindi, English, or mixed.
+
+The bottom-nav icon for an entry is picked by index from `PoemIcons` in [RomanticBottomNavigation.kt](app/src/main/java/com/love/devadasudiary/ui/components/RomanticBottomNavigation.kt) — extra entries fall back to a heart automatically.
 
 ---
 
-## Default Reading Settings
+## Default reading settings
 
-| Setting | Default |
-|---|---|
-| Font size | 14 sp |
-| Line spacing | 14 |
-| Padding | 21 dp |
-| Alignment | Left |
-| Theme | Dark |
+| Setting | Default | Range |
+|---|---|---|
+| Font size | 14 sp | 10..34 |
+| Line spacing | 14 | 8..30 |
+| Padding | 21 dp | 0..48 |
+| Center align | off | toggle |
+| Haptics | on | toggle |
+| Dynamic colors | off | toggle |
+| Theme | Dark | toggle |
+
+All ranges are defined once in [`core.Constants.DiaryRanges`](app/src/main/java/com/love/devadasudiary/core/Constants.kt) so the UI sliders and ViewModel coercion can never disagree.
 
 ---
 
@@ -125,25 +195,23 @@ The URL **must** be the RAW Gist URL, not the Gist page URL. Poems can be writte
 **Requirements:** JDK 17, Android SDK API 34+
 
 ```bash
-# Build debug APK
-./gradlew clean assembleDebug
-
-# Output
-app/build/outputs/apk/debug/app-debug.apk
-
-# Install via ADB
+# Debug APK
+./gradlew :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.love.devadasudiary.debug/com.love.devadasudiary.MainActivity
 
-# Launch directly
-adb shell monkey -p com.love.devadasudiary -c android.intent.category.LAUNCHER 1
+# Release APK (signed with the debug keystore for GitHub distribution)
+./gradlew :app:assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
 ```
+
+The release build is intentionally signed with the debug keystore so the APK published on GitHub Releases is installable. Replace `signingConfigs.getByName("debug")` in [`app/build.gradle.kts`](app/build.gradle.kts) with a real release key before any Play Store upload.
 
 ---
 
-
 ## Minimum SDK
 
-API 24 (Android 7.0 Nougat)
+API 24 (Android 7.0 Nougat).
 
 ---
 

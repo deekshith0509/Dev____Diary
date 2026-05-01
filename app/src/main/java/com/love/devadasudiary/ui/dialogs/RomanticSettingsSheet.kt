@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -23,10 +24,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -37,43 +35,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.love.devadasudiary.core.DiaryDimens
+import com.love.devadasudiary.core.DiaryRanges
+import com.love.devadasudiary.ui.state.ReadingSettings
 import com.love.devadasudiary.ui.theme.RomanticFontFamily
 
+private const val PREVIEW_TEXT =
+    "ఇది నా మనసు రాసిన ప్రేమ...\nనా మాటల్లో నిన్ను దాచుకున్నాను..."
+
+/**
+ * Reading-experience settings.
+ *
+ * The sheet now consumes the immutable [ReadingSettings] value rather than
+ * five disjoint Float/Boolean pairs, and writes back through callbacks
+ * directly to the ViewModel — no local mirror state, no slider/VM drift.
+ * Slider ranges come from [DiaryRanges] so they can never disagree with
+ * the validation in the ViewModel.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RomanticSettingsSheet(
-    fontSize: Float,
+    settings: ReadingSettings,
+    hapticsEnabled: Boolean,
+    dynamicColor: Boolean,
     onFontSizeChange: (Float) -> Unit,
-
-    lineSpacing: Float,
     onLineSpacingChange: (Float) -> Unit,
-
-    poemPadding: Float,
-    onPoemPaddingChange: (Float) -> Unit,
-
-    centerAlign: Boolean,
+    onPaddingChange: (Float) -> Unit,
     onCenterAlignChange: (Boolean) -> Unit,
-
+    onHapticsChange: (Boolean) -> Unit,
+    onDynamicColorChange: (Boolean) -> Unit,
+    onReset: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var localFontSize    by remember(fontSize)      { mutableFloatStateOf(fontSize) }
-    var localLineSpacing by remember(lineSpacing)   { mutableFloatStateOf(lineSpacing) }
-    var localPadding     by remember(poemPadding)   { mutableFloatStateOf(poemPadding) }
-    var localAlign       by remember(centerAlign)   { mutableStateOf(centerAlign) }
-    var showHint         by remember               { mutableStateOf(true) }
-
-    val primary   = MaterialTheme.colorScheme.primary
+    val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
     val onSurface = MaterialTheme.colorScheme.onSurface
-
-    val previewText = remember {
-        "ఇది నా మనసు రాసిన ప్రేమ...\nనా మాటల్లో నిన్ను దాచుకున్నాను..."
-    }
+    val previewText = remember { PREVIEW_TEXT }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(
+            topStart = DiaryDimens.SettingsSheetCorner,
+            topEnd = DiaryDimens.SettingsSheetCorner
+        ),
         tonalElevation = 8.dp
     ) {
         Column(
@@ -84,7 +89,7 @@ fun RomanticSettingsSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 "✦ Settings ✦",
@@ -108,16 +113,20 @@ fun RomanticSettingsSheet(
 
             Spacer(Modifier.height(18.dp))
 
-            // Preview Card
+            // Live preview ----------------------------------------------------
             Card(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(DiaryDimens.CardCornerMedium),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 ),
                 border = BorderStroke(
                     1.dp,
                     Brush.horizontalGradient(
-                        listOf(primary.copy(0.45f), secondary.copy(0.35f), Color.Transparent)
+                        listOf(
+                            primary.copy(alpha = 0.45f),
+                            secondary.copy(alpha = 0.35f),
+                            Color.Transparent
+                        )
                     )
                 ),
                 modifier = Modifier
@@ -132,143 +141,159 @@ fun RomanticSettingsSheet(
                     Text(
                         text = previewText,
                         style = TextStyle(
-                            fontSize = localFontSize.sp,
+                            fontSize = settings.fontSize.sp,
                             fontFamily = RomanticFontFamily,
                             fontWeight = FontWeight.Light,
                             color = onSurface.copy(alpha = 0.92f),
-                            lineHeight = (localFontSize + localLineSpacing).sp,
-                            textAlign = if (localAlign) TextAlign.Center else TextAlign.Start
+                            lineHeight = (settings.fontSize + settings.lineSpacing).sp,
+                            textAlign = if (settings.centerAlign) TextAlign.Center else TextAlign.Start
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = localPadding.dp)
+                            .padding(horizontal = settings.padding.dp)
                     )
-
-                    if (showHint) {
-                        Text(
-                            text = "Preview",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontStyle = FontStyle.Italic
-                            ),
-                            color = onSurface.copy(alpha = 0.55f),
-                            modifier = Modifier.align(Alignment.BottomEnd)
-                        )
-                    }
+                    Text(
+                        text = "Preview",
+                        style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                        color = onSurface.copy(alpha = 0.55f),
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                    )
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // Font Size
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                Text("Font Size", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "${localFontSize.toInt()} sp",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = primary
-                    )
-                )
-            }
-            Slider(
-                value = localFontSize,
-                onValueChange = { localFontSize = it; onFontSizeChange(it) },
-                valueRange = 10f..34f,
-                steps = 11
+            SliderRow(
+                label = "Font Size",
+                value = settings.fontSize,
+                range = DiaryRanges.FONT_SIZE,
+                steps = DiaryRanges.FONT_SIZE_STEPS,
+                valueLabel = "${settings.fontSize.toInt()} sp",
+                accent = primary,
+                onChange = onFontSizeChange
             )
 
             Spacer(Modifier.height(14.dp))
 
-            // Line Spacing
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                Text("Line Spacing", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "${localLineSpacing.toInt()}",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = secondary
-                    )
-                )
-            }
-            Slider(
-                value = localLineSpacing,
-                onValueChange = { localLineSpacing = it; onLineSpacingChange(it) },
-                valueRange = 6f..30f,
-                steps = 11
+            SliderRow(
+                label = "Line Spacing",
+                value = settings.lineSpacing,
+                range = DiaryRanges.LINE_SPACING,
+                steps = DiaryRanges.LINE_SPACING_STEPS,
+                valueLabel = "${settings.lineSpacing.toInt()}",
+                accent = secondary,
+                onChange = onLineSpacingChange
             )
 
             Spacer(Modifier.height(14.dp))
 
-            // Padding
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                Text("Reading Padding", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "${localPadding.toInt()} dp",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = primary
-                    )
-                )
-            }
-            Slider(
-                value = localPadding,
-                onValueChange = { localPadding = it; onPoemPaddingChange(it) },
-                valueRange = 0f..48f,
-                steps = 11
+            SliderRow(
+                label = "Reading Padding",
+                value = settings.padding,
+                range = DiaryRanges.PADDING,
+                steps = DiaryRanges.PADDING_STEPS,
+                valueLabel = "${settings.padding.toInt()} dp",
+                accent = primary,
+                onChange = onPaddingChange
             )
 
             Spacer(Modifier.height(12.dp))
 
-            // Center Align
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Center Align Text")
-                Switch(
-                    checked = localAlign,
-                    onCheckedChange = { localAlign = it; onCenterAlignChange(it) }
-                )
-            }
+            ToggleRow(
+                label = "Center Align Text",
+                checked = settings.centerAlign,
+                onChange = onCenterAlignChange
+            )
 
-            // Preview Hint
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Show Preview Hint")
-                Switch(checked = showHint, onCheckedChange = { showHint = it })
-            }
+            ToggleRow(
+                label = "Haptic Feedback",
+                checked = hapticsEnabled,
+                onChange = onHapticsChange
+            )
 
-            Spacer(Modifier.height(18.dp))
+            ToggleRow(
+                label = "Dynamic Theme Colors",
+                checked = dynamicColor,
+                onChange = onDynamicColorChange
+            )
 
-            // Reset
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = onSurface.copy(alpha = 0.12f))
+            Spacer(Modifier.height(14.dp))
+
             OutlinedButton(
-                onClick = {
-                    localFontSize    = 14f; onFontSizeChange(14f)
-                    localLineSpacing = 14f; onLineSpacingChange(14f)
-                    localPadding     = 21f; onPoemPaddingChange(21f)
-                    localAlign       = false; onCenterAlignChange(false)
-                },
+                onClick = onReset,
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 border = BorderStroke(1.dp, primary.copy(alpha = 0.6f))
             ) {
-                Text("Reset to Default", fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp, color = primary)
+                Text(
+                    "Reset to Default",
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.8.sp,
+                    color = primary
+                )
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // Done
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.fillMaxWidth().height(50.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
                 Text("Done", fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun SliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    valueLabel: String,
+    accent: Color,
+    onChange: (Float) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            valueLabel,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = accent
+            )
+        )
+    }
+    Slider(
+        value = value,
+        onValueChange = onChange,
+        valueRange = range,
+        steps = steps
+    )
+}
+
+@Composable
+private fun ToggleRow(
+    label: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
